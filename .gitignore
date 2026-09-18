@@ -1,0 +1,29 @@
+# Gradle files
+.gradle/
+build/
+**/build/
+
+# Local configuration files
+local.properties
+
+# Android Studio / IntelliJ / IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Temporary server releases & APK build outputs
+server/releases/*
+!server/releases/.gitkeep
+public/releases/*
+!public/releases/.gitkeep
+*.apk
+
+# Node dependencies
+node_modules/
+.vercel/
+
+# Environment secrets
+.env
+.env.local
