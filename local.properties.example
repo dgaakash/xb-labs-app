@@ -1,0 +1,12 @@
+# Location of the Android SDK.
+# When opening this project in Android Studio, this file (local.properties) will be generated automatically.
+# If building from the command line locally, set ANDROID_HOME environment variable or define sdk.dir below:
+#
+# Windows:
+# sdk.dir=C\:\\Users\\YourUsername\\AppData\\Local\\Android\\Sdk
+#
+# macOS:
+# sdk.dir=/Users/YourUsername/Library/Android/sdk
+#
+# Linux:
+# sdk.dir=/home/YourUsername/Android/Sdk

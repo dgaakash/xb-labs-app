@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">XB Labs</string>
+    <string name="welcome_title">Welcome 👋</string>
+    <string name="welcome_subtitle">Welcome to the App</string>
+    <string name="update_required_title">UPDATE REQUIRED</string>
+    <string name="update_required_msg">A new version of the application is required to continue.</string>
+    <string name="update_now_button">UPDATE NOW</string>
+    <string name="downloading_update_title">DOWNLOADING UPDATE</string>
+    <string name="verifying_update_title">VERIFYING UPDATE</string>
+    <string name="installing_update_title">INSTALLING UPDATE</string>
+    <string name="update_failed_title">UPDATE FAILED</string>
+    <string name="retry_button">RETRY</string>
+    <string name="permission_required_title">Permission Required</string>
+    <string name="permission_required_msg">To finish installing the update, Android requires permission to allow this app to install updates.</string>
+    <string name="grant_permission_button">OPEN SETTINGS</string>
+</resources>
