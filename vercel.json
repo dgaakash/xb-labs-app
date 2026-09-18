@@ -4,6 +4,10 @@
     {
       "source": "/api/app/update",
       "destination": "/api/update"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
     }
   ]
 }

@@ -21,39 +21,46 @@ module.exports = function handler(req, res) {
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
   const proto = req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https');
 
-  const apkFilename = process.env.APK_FILENAME || 'app-1.1.0.apk';
-  const apkPath = path.join(process.cwd(), 'public', 'releases', apkFilename);
-
-  let fileSize = parseInt(process.env.APK_FILE_SIZE || '0', 10);
-  let sha256Hash = process.env.APK_SHA256 || '';
-
-  if (fs.existsSync(apkPath)) {
-    const stats = fs.statSync(apkPath);
-    if (!fileSize) fileSize = stats.size;
-    if (!sha256Hash) {
-      const fileBuffer = fs.readFileSync(apkPath);
-      sha256Hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  let config = {};
+  const configPath = path.join(process.cwd(), 'api', 'release-config.json');
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {
+      console.error('Error parsing release-config.json:', e);
     }
   }
 
-  // Fallback defaults if no file on disk or env var
-  if (!fileSize) fileSize = 15000000; // ~15MB
+  const apkFilename = process.env.APK_FILENAME || config.apkFilename || 'app-1.1.0.apk';
+  const apkPath = path.join(process.cwd(), 'public', 'releases', apkFilename);
+
+  let fileSize = parseInt(process.env.APK_FILE_SIZE || (config.fileSize ? String(config.fileSize) : '0'), 10);
+  let sha256Hash = process.env.APK_SHA256 || config.sha256 || '';
+
+  if (fs.existsSync(apkPath)) {
+    const stats = fs.statSync(apkPath);
+    fileSize = stats.size;
+    const fileBuffer = fs.readFileSync(apkPath);
+    sha256Hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  }
+
+  if (!fileSize) fileSize = 15000000;
   if (!sha256Hash) sha256Hash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
   const updateResponse = {
-    latestVersionCode: parseInt(process.env.LATEST_VERSION_CODE || '2', 10),
-    latestVersionName: process.env.LATEST_VERSION_NAME || '1.1.0',
-    minimumSupportedVersionCode: parseInt(process.env.MINIMUM_SUPPORTED_VERSION_CODE || '2', 10),
-    forceUpdate: process.env.FORCE_UPDATE !== 'false',
-    apkUrl: process.env.APK_URL || `${proto}://${host}/releases/${apkFilename}`,
+    latestVersionCode: parseInt(process.env.LATEST_VERSION_CODE || (config.latestVersionCode ? String(config.latestVersionCode) : '2'), 10),
+    latestVersionName: process.env.LATEST_VERSION_NAME || config.latestVersionName || '1.1.0',
+    minimumSupportedVersionCode: parseInt(process.env.MINIMUM_SUPPORTED_VERSION_CODE || (config.minimumSupportedVersionCode ? String(config.minimumSupportedVersionCode) : '2'), 10),
+    forceUpdate: process.env.FORCE_UPDATE !== undefined ? process.env.FORCE_UPDATE !== 'false' : (config.forceUpdate !== false),
+    apkUrl: process.env.APK_URL || config.apkUrl || `${proto}://${host}/releases/${apkFilename}`,
     sha256: sha256Hash,
     fileSize: fileSize,
-    releaseNotes: [
+    releaseNotes: config.releaseNotes || [
       'Mandatory security & feature update v1.1.0',
       'Enhanced in-app update engine with SHA-256 verification',
       'Performance optimizations'
     ],
-    message: 'This update is required to continue using XB Labs.'
+    message: config.message || 'This update is required to continue using XB Labs.'
   };
 
   res.setHeader('Content-Type', 'application/json');

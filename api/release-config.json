@@ -1,0 +1,16 @@
+{
+  "latestVersionCode": 2,
+  "latestVersionName": "1.1.0",
+  "minimumSupportedVersionCode": 2,
+  "forceUpdate": true,
+  "apkFilename": "app-1.1.0.apk",
+  "apkUrl": "",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "fileSize": 52428800,
+  "releaseNotes": [
+    "Mandatory security & feature update v1.1.0",
+    "Enhanced in-app update engine with SHA-256 verification",
+    "Performance optimizations"
+  ],
+  "message": "This update is required to continue using XB Labs."
+}
