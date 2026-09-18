@@ -8,7 +8,7 @@ object AppConfig {
      * The primary HTTPS update API endpoint.
      * Can be replaced with real backend URL in production.
      */
-    const val UPDATE_API_URL = "https://example.com/api/app/update"
+    const val UPDATE_API_URL = "https://xb-labs-app.vercel.app/api/app/update"
 
     /**
      * Connection timeout in milliseconds.
