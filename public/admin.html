@@ -478,7 +478,15 @@ Performance & UI optimizations</textarea>
     let computedSizeBytes = 0;
 
     const apkInput = document.getElementById('apk-input');
-    const dropzone = document.getElementById('dropzone');
+    const dropzone = document.get    // Load saved GitHub token from localStorage
+    const savedToken = localStorage.getItem('xb_github_token');
+    if (savedToken) {
+      document.getElementById('githubToken').value = savedToken;
+    }
+
+    document.getElementById('githubToken').addEventListener('input', (e) => {
+      localStorage.setItem('xb_github_token', e.target.value.trim());
+    });
 
     ['dragenter', 'dragover'].forEach(eventName => {
       dropzone.addEventListener(eventName, (e) => {
@@ -523,10 +531,15 @@ Performance & UI optimizations</textarea>
       log(`Selected file: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
       log('Calculating client-side SHA-256 hash using Web Crypto API...');
 
-      // Auto update version name if filename has it
+      // Auto update version name if filename has it, else auto-increment
       const match = file.name.match(/(\d+\.\d+\.\d+)/);
       if (match) {
         document.getElementById('versionName').value = match[1];
+      } else {
+        const curVerCode = parseInt(document.getElementById('versionCode').value || '1', 10);
+        document.getElementById('versionCode').value = curVerCode + 1;
+        document.getElementById('minVersionCode').value = curVerCode + 1;
+        document.getElementById('versionName').value = `1.${curVerCode}.0`;
       }
 
       // Compute SHA-256 using browser crypto
@@ -538,6 +551,7 @@ Performance & UI optimizations</textarea>
       document.getElementById('meta-hash').textContent = computedSha256;
       document.getElementById('progress-fill').style.width = '100%';
       log(`✅ SHA-256 calculated: ${computedSha256}`);
+      log(`🔗 Target APK URL: https://${window.location.host}/releases/${file.name}`);
     }
 
     function log(msg) {
@@ -575,119 +589,133 @@ Performance & UI optimizations</textarea>
       const releaseNotes = document.getElementById('releaseNotes').value.split('\n').filter(l => l.trim().length > 0);
       const githubToken = document.getElementById('githubToken').value.trim();
 
-      const apkFilename = selectedFile ? selectedFile.name : `app-${versionName}.apk`;
-      const sha256 = computedSha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-      const fileSize = computedSizeBytes || 52428800;
+      if (githubToken) {
+        localStorage.setItem('xb_github_token', githubToken);
+      }
 
-      log('Starting update publication...');
-      log(`Config: v${versionName} (code ${versionCode}), minCode ${minVersionCode}, force=${forceUpdate}`);
+      if (!selectedFile) {
+        log('⚠️ Please select an APK file first before publishing!');
+        alert('Please select an APK file first.');
+        return;
+      }
 
-      if (githubToken && selectedFile) {
-        log('Uploading APK and updating release-config.json via GitHub API...');
-        try {
-          const repoOwner = 'dgaakash';
-          const repoName = 'xb-labs-app';
-          const branch = 'main';
+      if (!githubToken) {
+        log('⚠️ GitHub Access Token is required to upload the APK.');
+        alert('Please enter your GitHub Access Token (it will be saved automatically for future uploads).');
+        return;
+      }
 
-          // 1. Upload/Commit APK to public/releases/
-          log(`Step 1/2: Uploading ${selectedFile.name} to repo public/releases/...`);
-          const reader = new FileReader();
-          reader.readAsDataURL(selectedFile);
-          reader.onload = async () => {
-            const base64Content = reader.result.split(',')[1];
-            const apkPath = `public/releases/${apkFilename}`;
-            
-            // Check existing SHA
-            let existingSha = null;
-            try {
-              const checkRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${apkPath}?ref=${branch}`, {
-                headers: { 'Authorization': `token ${githubToken}` }
-              });
-              if (checkRes.ok) {
-                const checkData = await checkRes.json();
-                existingSha = checkData.sha;
-              }
-            } catch (e) {}
+      const apkFilename = selectedFile.name;
+      const sha256 = computedSha256;
+      const fileSize = computedSizeBytes;
+      const targetApkUrl = `https://${window.location.host}/releases/${apkFilename}`;
 
-            const uploadBody = {
-              message: `feat(release): upload APK ${apkFilename} v${versionName}`,
-              content: base64Content,
-              branch: branch
-            };
-            if (existingSha) uploadBody.sha = existingSha;
+      log('🚀 Starting automatic 1-click APK upload & publication...');
+      log(`Calculated File Size: ${fileSize} bytes`);
+      log(`Calculated SHA-256: ${sha256}`);
+      log(`Auto-generated APK URL: ${targetApkUrl}`);
 
-            const uploadRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${apkPath}`, {
-              method: 'PUT',
-              headers: {
-                'Authorization': `token ${githubToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(uploadBody)
+      try {
+        const repoOwner = 'dgaakash';
+        const repoName = 'xb-labs-app';
+        const branch = 'main';
+
+        // 1. Upload/Commit APK to public/releases/
+        log(`Step 1/2: Uploading ${apkFilename} to GitHub repository public/releases/...`);
+        const reader = new FileReader();
+        reader.readAsDataURL(selectedFile);
+        reader.onload = async () => {
+          const base64Content = reader.result.split(',')[1];
+          const apkPath = `public/releases/${apkFilename}`;
+          
+          let existingSha = null;
+          try {
+            const checkRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${apkPath}?ref=${branch}`, {
+              headers: { 'Authorization': `token ${githubToken}` }
             });
-
-            if (!uploadRes.ok) {
-              const errData = await uploadRes.json();
-              throw new Error(`GitHub APK Upload failed: ${errData.message}`);
+            if (checkRes.ok) {
+              const checkData = await checkRes.json();
+              existingSha = checkData.sha;
             }
+          } catch (e) {}
 
-            log('✅ APK committed to GitHub repo successfully!');
-
-            // 2. Commit release-config.json
-            log('Step 2/2: Updating api/release-config.json in repo...');
-            const configObj = {
-              latestVersionCode: versionCode,
-              latestVersionName: versionName,
-              minimumSupportedVersionCode: minVersionCode,
-              forceUpdate: forceUpdate,
-              apkFilename: apkFilename,
-              apkUrl: `https://${window.location.host}/releases/${apkFilename}`,
-              sha256: sha256,
-              fileSize: fileSize,
-              releaseNotes: releaseNotes,
-              message: 'This update is required to continue using XB Labs.'
-            };
-
-            const configPath = 'api/release-config.json';
-            let configSha = null;
-            try {
-              const checkConfigRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${configPath}?ref=${branch}`, {
-                headers: { 'Authorization': `token ${githubToken}` }
-              });
-              if (checkConfigRes.ok) {
-                const checkConfigData = await checkConfigRes.json();
-                configSha = checkConfigData.sha;
-              }
-            } catch (e) {}
-
-            const configBody = {
-              message: `chore(release): update release-config.json for v${versionName}`,
-              content: btoa(JSON.stringify(configObj, null, 2)),
-              branch: branch
-            };
-            if (configSha) configBody.sha = configSha;
-
-            const configRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${configPath}`, {
-              method: 'PUT',
-              headers: {
-                'Authorization': `token ${githubToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(configBody)
-            });
-
-            if (!configRes.ok) {
-              const errData = await configRes.json();
-              throw new Error(`GitHub Config Update failed: ${errData.message}`);
-            }
-
-            log('🎉 SUCCESS! Version & APK committed to GitHub. Vercel auto-deployment triggered!');
-            setTimeout(fetchCurrentConfig, 5000);
+          const uploadBody = {
+            message: `feat(release): upload APK ${apkFilename} v${versionName}`,
+            content: base64Content,
+            branch: branch
           };
-        } catch (err) {
-          log(`❌ Error: ${err.message}`);
-        }
-      } else {
-        log('ℹ️ Tip: Enter a GitHub Personal Access Token to commit the APK & release settings directly to your repo in 1 click!');
+          if (existingSha) uploadBody.sha = existingSha;
+
+          const uploadRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${apkPath}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `token ${githubToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(uploadBody)
+          });
+
+          if (!uploadRes.ok) {
+            const errData = await uploadRes.json();
+            throw new Error(`GitHub APK Upload failed: ${errData.message}`);
+          }
+
+          log('✅ APK file uploaded to GitHub repo!');
+
+          // 2. Commit release-config.json
+          log('Step 2/2: Auto-updating release-config.json with URL, SHA-256 & byte size...');
+          const configObj = {
+            latestVersionCode: versionCode,
+            latestVersionName: versionName,
+            minimumSupportedVersionCode: minVersionCode,
+            forceUpdate: forceUpdate,
+            apkFilename: apkFilename,
+            apkUrl: targetApkUrl,
+            sha256: sha256,
+            fileSize: fileSize,
+            releaseNotes: releaseNotes,
+            message: 'This update is required to continue using XB Labs.'
+          };
+
+          const configPath = 'api/release-config.json';
+          let configSha = null;
+          try {
+            const checkConfigRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${configPath}?ref=${branch}`, {
+              headers: { 'Authorization': `token ${githubToken}` }
+            });
+            if (checkConfigRes.ok) {
+              const checkConfigData = await checkConfigRes.json();
+              configSha = checkConfigData.sha;
+            }
+          } catch (e) {}
+
+          const configBody = {
+            message: `chore(release): update release-config.json for v${versionName}`,
+            content: btoa(JSON.stringify(configObj, null, 2)),
+            branch: branch
+          };
+          if (configSha) configBody.sha = configSha;
+
+          const configRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${configPath}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `token ${githubToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(configBody)
+          });
+
+          if (!configRes.ok) {
+            const errData = await configRes.json();
+            throw new Error(`GitHub Config Update failed: ${errData.message}`);
+          }
+
+          log('🎉 DONE! APK, URL, SHA-256, and File Size are saved & published! Vercel is auto-deploying.');
+          alert('Successfully published! Vercel will deploy the update automatically in ~30 seconds.');
+        };
+      } catch (err) {
+        log(`❌ Error: ${err.message}`);
+        alert(`Error publishing update: ${err.message}`);
       }
     }
 
