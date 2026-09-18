@@ -478,7 +478,9 @@ Performance & UI optimizations</textarea>
     let computedSizeBytes = 0;
 
     const apkInput = document.getElementById('apk-input');
-    const dropzone = document.get    // Load saved GitHub token from localStorage
+    const dropzone = document.getElementById('dropzone');
+
+    // Load saved GitHub token from localStorage
     const savedToken = localStorage.getItem('xb_github_token');
     if (savedToken) {
       document.getElementById('githubToken').value = savedToken;
