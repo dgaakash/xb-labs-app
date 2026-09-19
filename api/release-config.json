@@ -3,10 +3,10 @@
   "latestVersionName": "2.1.0",
   "minimumSupportedVersionCode": 2,
   "forceUpdate": true,
-  "apkFilename": "app-release-unsigned.apk",
-  "apkUrl": "https://xb-labs-app.vercel.app/releases/app-release-unsigned.apk",
-  "sha256": "bd0f8dea919ee7acc27b4974ab4fd6abcf6a4642b0990ad9629fc3442b9bea5b",
-  "fileSize": 10398370,
+  "apkFilename": "app-release.apk",
+  "apkUrl": "https://xb-labs-app.vercel.app/releases/app-release.apk",
+  "sha256": "c12a7b078da57a81ae07c8a82c6f31794b75a97a2064041b2f2638a18b7d48df",
+  "fileSize": 10406562,
   "releaseNotes": [
     "Added  Login for Admin and Employee"
   ],
