@@ -10,13 +10,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -71,7 +68,6 @@ fun LoginScreen(
     var emailInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val focusManager = LocalFocusManager.clearFocus()
 
     val backgroundBrush = Brush.verticalGradient(
         colors = listOf(
@@ -87,7 +83,7 @@ fun LoginScreen(
             errorMessage = null
             onLoginSuccess(account)
         } else {
-            errorMessage = "Invalid email account. Please use xavier@xblabs.com or blessi@xblabs.com"
+            errorMessage = "Invalid email. Please use xavier@xblabs.com or blessi@xblabs.com"
         }
     }
 
@@ -127,7 +123,7 @@ fun LoginScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.RocketLaunch,
+                        imageVector = Icons.Default.Star,
                         contentDescription = "XB Labs Logo",
                         tint = Color.White,
                         modifier = Modifier.size(36.dp)
@@ -191,7 +187,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Divider(color = Color(0xFF334155), thickness = 1.dp)
+                HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -292,7 +288,7 @@ fun LoginScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Login,
+                            imageVector = Icons.Default.Person,
                             contentDescription = null,
                             tint = Color(0xFF0F172A)
                         )
@@ -339,10 +335,10 @@ fun AccountQuickTile(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (account.role == "Admin") Icons.Default.AdminPanelSettings else Icons.Default.Badge,
+                    imageVector = Icons.Default.AccountCircle,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
             Spacer(modifier = Modifier.height(6.dp))

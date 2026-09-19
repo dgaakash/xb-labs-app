@@ -1,20 +1,15 @@
 package com.xblabs.app.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.RocketLaunch
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -78,10 +73,10 @@ fun WelcomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (user.role == "Admin") Icons.Default.AdminPanelSettings else Icons.Default.Badge,
+                        imageVector = Icons.Default.AccountCircle,
                         contentDescription = "User Avatar",
                         tint = Color.White,
-                        modifier = Modifier.size(46.dp)
+                        modifier = Modifier.size(52.dp)
                     )
                 }
 
@@ -115,7 +110,7 @@ fun WelcomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (user.role == "Admin") Icons.Default.Shield else Icons.Default.Work,
+                            imageVector = Icons.Default.Star,
                             contentDescription = null,
                             tint = user.color,
                             modifier = Modifier.size(16.dp)
@@ -221,7 +216,7 @@ fun WelcomeScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            imageVector = Icons.Default.Person,
                             contentDescription = null,
                             tint = Color(0xFFF87171),
                             modifier = Modifier.size(18.dp)
