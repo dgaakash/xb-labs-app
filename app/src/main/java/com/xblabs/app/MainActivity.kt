@@ -11,10 +11,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xblabs.app.data.CrmRepository
+import com.xblabs.app.data.models.User
+import com.xblabs.app.data.models.UserRole
 import com.xblabs.app.ui.*
+import com.xblabs.app.ui.admin.AdminMainScreen
+import com.xblabs.app.ui.employee.EmployeeMainScreen
 import com.xblabs.app.update.UpdateManager
 import com.xblabs.app.update.UpdateState
 
@@ -30,7 +36,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val state by updateManager.state.collectAsState()
-                var currentUser by remember { mutableStateOf<UserAccount?>(null) }
+                val context = LocalContext.current
+                val repository = remember { CrmRepository.getInstance(context) }
+                val currentUser by repository.currentUser.collectAsState()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -42,23 +50,28 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is UpdateState.UpToDate -> {
-                            // Render LoginScreen or WelcomeScreen based on authentication state
+                            // Render LoginScreen or CRM Workspace based on role & auth state
                             val user = currentUser
                             if (user == null) {
                                 LoginScreen(
                                     onLoginSuccess = { loggedInUser ->
-                                        currentUser = loggedInUser
+                                        repository.setCurrentUser(loggedInUser)
                                     }
                                 )
                             } else {
-                                WelcomeScreen(
-                                    user = user,
-                                    versionName = current.installedVersionName,
-                                    versionCode = current.installedVersionCode,
-                                    onLogout = {
-                                        currentUser = null
-                                    }
-                                )
+                                if (user.role == UserRole.ADMIN) {
+                                    AdminMainScreen(
+                                        adminUser = user,
+                                        repository = repository,
+                                        onLogout = { repository.setCurrentUser(null) }
+                                    )
+                                } else {
+                                    EmployeeMainScreen(
+                                        employee = user,
+                                        repository = repository,
+                                        onLogout = { repository.setCurrentUser(null) }
+                                    )
+                                }
                             }
                         }
 

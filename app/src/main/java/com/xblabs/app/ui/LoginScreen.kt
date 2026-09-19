@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -19,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -26,51 +26,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-data class UserAccount(
-    val email: String,
-    val username: String,
-    val name: String,
-    val role: String,
-    val password: String,
-    val color: Color
-)
-
-object PredefinedAccounts {
-    val ADMIN = UserAccount(
-        email = "xavier@xblabs.com",
-        username = "xavier",
-        name = "Xavier",
-        role = "Admin",
-        password = "xblabs123@@@@",
-        color = Color(0xFF6366F1) // Indigo
-    )
-
-    val EMPLOYEE = UserAccount(
-        email = "blessi@xblabs.com",
-        username = "blessi",
-        name = "Blessi",
-        role = "PR & Sales",
-        password = "xblabs123@",
-        color = Color(0xFFEC4899) // Pink
-    )
-
-    val ALL = listOf(ADMIN, EMPLOYEE)
-
-    fun authenticate(userInput: String, passwordInput: String): UserAccount? {
-        val trimmedUser = userInput.trim().lowercase()
-        return ALL.find { account ->
-            (account.username.lowercase() == trimmedUser || account.email.lowercase() == trimmedUser) &&
-                    account.password == passwordInput
-        }
-    }
-}
+import com.xblabs.app.data.CrmRepository
+import com.xblabs.app.data.models.User
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (UserAccount) -> Unit
+    onLoginSuccess: (User) -> Unit
 ) {
+    val context = LocalContext.current
     var userInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -88,12 +52,13 @@ fun LoginScreen(
             errorMessage = "Please enter both username/email and password."
             return
         }
-        val account = PredefinedAccounts.authenticate(userInput, passwordInput)
-        if (account != null) {
+        val repository = CrmRepository.getInstance(context)
+        val user = repository.authenticate(userInput, passwordInput)
+        if (user != null) {
             errorMessage = null
-            onLoginSuccess(account)
+            onLoginSuccess(user)
         } else {
-            errorMessage = "Invalid credentials. Please check your username and password."
+            errorMessage = "Invalid credentials. Check username/password."
         }
     }
 
@@ -143,7 +108,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "XB Labs Portal",
+                    text = "XB Labs CRM Portal",
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -151,7 +116,7 @@ fun LoginScreen(
                 )
 
                 Text(
-                    text = "Sign in to access your workspace",
+                    text = "Sign in to access your sales workspace",
                     fontSize = 14.sp,
                     color = Color(0xFF94A3B8),
                     textAlign = TextAlign.Center

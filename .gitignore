@@ -5,6 +5,9 @@ build/
 
 # Local configuration files
 local.properties
+android-sdk/
+cmdline-tools.zip
+
 
 # Android Studio / IntelliJ / IDE files
 .idea/

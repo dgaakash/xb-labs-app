@@ -22,9 +22,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import com.xblabs.app.data.models.User
+
 @Composable
 fun WelcomeScreen(
-    user: UserAccount,
+    user: User,
     versionName: String,
     versionCode: Long,
     onLogout: () -> Unit
@@ -67,7 +69,7 @@ fun WelcomeScreen(
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                colors = listOf(user.color, Color(0xFF38BDF8))
+                                colors = listOf(user.displayColor, Color(0xFF38BDF8))
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -102,8 +104,8 @@ fun WelcomeScreen(
                 // Role Pill Tag
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = user.color.copy(alpha = 0.2f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, user.color.copy(alpha = 0.5f))
+                    color = user.displayColor.copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, user.displayColor.copy(alpha = 0.5f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
@@ -112,15 +114,15 @@ fun WelcomeScreen(
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
-                            tint = user.color,
+                            tint = user.displayColor,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = user.role,
+                            text = user.roleName,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = user.color
+                            color = user.displayColor
                         )
                     }
                 }
@@ -161,7 +163,7 @@ fun WelcomeScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Access Level: ${if (user.role == "Admin") "Full Administrator" else "Standard Employee"}",
+                                text = "Access Level: ${if (user.role == com.xblabs.app.data.models.UserRole.ADMIN) "Full Administrator" else "Standard Employee"}",
                                 fontSize = 14.sp,
                                 color = Color(0xFFCBD5E1)
                             )
