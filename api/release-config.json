@@ -3,14 +3,12 @@
   "latestVersionName": "2.1.0",
   "minimumSupportedVersionCode": 2,
   "forceUpdate": true,
-  "apkFilename": "app-debug.apk",
-  "apkUrl": "https://xb-labs-app.vercel.app/releases/app-debug.apk",
-  "sha256": "7c825c22965410502c856e4c0c699dc8b593f15a72f365a782db55f365c28902",
-  "fileSize": 15637970,
+  "apkFilename": "app-release-unsigned.apk",
+  "apkUrl": "https://xb-labs-app.vercel.app/releases/app-release-unsigned.apk",
+  "sha256": "bd0f8dea919ee7acc27b4974ab4fd6abcf6a4642b0990ad9629fc3442b9bea5b",
+  "fileSize": 10398370,
   "releaseNotes": [
-    "Current stable release",
-    "In-app update engine with SHA-256 verification",
-    "Performance optimizations"
+    "Added  Login for Admin and Employee"
   ],
   "message": "This update is required to continue using XB Labs."
 }
