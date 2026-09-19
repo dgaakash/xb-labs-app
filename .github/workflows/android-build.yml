@@ -12,6 +12,12 @@ jobs:
     name: Build & Package APK
     runs-on: ubuntu-latest
 
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -31,37 +37,37 @@ jobs:
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
 
-      - name: Decode Release Keystore
-        if: env.KEYSTORE_BASE64 != ''
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Decode and Verify Release Keystore
         run: |
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
-          cp app/release.keystore release.keystore
-          echo "Keystore decoded. File size: $(stat -c%s app/release.keystore) bytes"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No KEYSTORE_BASE64 secret found. Will build debug APK."
+            exit 0
+          fi
 
-      - name: Verify Keystore
-        if: env.KEYSTORE_PASSWORD != ''
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: |
-          if [ -f app/release.keystore ]; then
-            keytool -list -keystore app/release.keystore -storepass "$KEYSTORE_PASSWORD" -storetype PKCS12 || echo "WARNING: Keystore verification failed, will fall back to debug build"
+          echo "Decoding keystore..."
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+          cp release.keystore app/release.keystore
+
+          DECODED_SIZE=$(stat -c%s release.keystore)
+          echo "Keystore decoded: $DECODED_SIZE bytes"
+
+          echo "Verifying keystore..."
+          keytool -list -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -storetype PKCS12
+          if [ $? -eq 0 ]; then
+            echo "KEYSTORE_VALID=true" >> $GITHUB_ENV
+            echo "Keystore is valid."
+          else
+            echo "Keystore verification FAILED. Will build debug APK."
+            rm -f release.keystore app/release.keystore
           fi
 
       - name: Build APK
-        env:
-          KEYSTORE_FILE_PATH: release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -f app/release.keystore ]; then
+          if [ "$KEYSTORE_VALID" = "true" ] && [ -f release.keystore ]; then
             echo "Building Signed Release APK..."
-            ./gradlew assembleRelease --stacktrace
+            KEYSTORE_FILE_PATH=release.keystore ./gradlew assembleRelease --stacktrace
           else
-            echo "No keystore found. Building Debug APK..."
+            echo "Building Debug APK..."
             ./gradlew assembleDebug --stacktrace
           fi
 
