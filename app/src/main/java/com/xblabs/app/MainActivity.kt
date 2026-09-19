@@ -7,9 +7,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +30,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val state by updateManager.state.collectAsState()
+                var currentUser by remember { mutableStateOf<UserAccount?>(null) }
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -43,11 +42,24 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is UpdateState.UpToDate -> {
-                            // Welcome screen is rendered ONLY when update state is verified UpToDate
-                            WelcomeScreen(
-                                versionName = current.installedVersionName,
-                                versionCode = current.installedVersionCode
-                            )
+                            // Render LoginScreen or WelcomeScreen based on authentication state
+                            val user = currentUser
+                            if (user == null) {
+                                LoginScreen(
+                                    onLoginSuccess = { loggedInUser ->
+                                        currentUser = loggedInUser
+                                    }
+                                )
+                            } else {
+                                WelcomeScreen(
+                                    user = user,
+                                    versionName = current.installedVersionName,
+                                    versionCode = current.installedVersionCode,
+                                    onLogout = {
+                                        currentUser = null
+                                    }
+                                )
+                            }
                         }
 
                         is UpdateState.UpdateRequired -> {
