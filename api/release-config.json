@@ -1,11 +1,11 @@
 {
   "latestVersionCode": 2,
   "latestVersionName": "2.1.0",
-  "minimumSupportedVersionCode": 2,
+  "minimumSupportedVersionCode": 1,
   "forceUpdate": true,
   "apkFilename": "app-release.apk",
   "apkUrl": "https://xb-labs-app.vercel.app/releases/app-release.apk",
-  "sha256": "c12a7b078da57a81ae07c8a82c6f31794b75a97a2064041b2f2638a18b7d48df",
+  "sha256": "f125d5668ce45b584bec62f3da6e544ec3bc1fd182a35a418cb9d5d54b0e364c",
   "fileSize": 10406562,
   "releaseNotes": [
     "Added  Login for Admin and Employee"
