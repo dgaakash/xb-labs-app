@@ -29,6 +29,12 @@ class UpdateManager(
     private var currentUpdateResponse: UpdateResponse? = null
     private var downloadedApkFile: File? = null
 
+    /**
+     * Tracks whether the initial update check (from init) has completed.
+     * This prevents the first onResume from interfering with the initial check.
+     */
+    private var initialCheckCompleted = false
+
     init {
         checkForUpdates()
     }
@@ -74,6 +80,8 @@ class UpdateManager(
                 _state.value = UpdateState.NetworkError(
                     message = e.localizedMessage ?: "Unable to connect to update server."
                 )
+            } finally {
+                initialCheckCompleted = true
             }
         }
     }
@@ -161,23 +169,46 @@ class UpdateManager(
 
     /**
      * Called on Activity resume to verify if the installation completed successfully.
+     *
+     * Only performs post-install verification when we were in an Installing state
+     * or when we had a known mandatory update. Does NOT re-trigger the full API check
+     * to avoid overriding the initial check result.
      */
     fun onAppResume() {
+        // Don't interfere with the initial check from init{}
+        if (!initialCheckCompleted) {
+            return
+        }
+
         val currentState = _state.value
+
+        // Already up-to-date — nothing to do
         if (currentState is UpdateState.UpToDate) {
+            return
+        }
+
+        // Still checking or downloading — don't interfere
+        if (currentState is UpdateState.Checking || currentState is UpdateState.Downloading || currentState is UpdateState.Verifying) {
             return
         }
 
         val installed = versionChecker.getInstalledVersion()
         val response = currentUpdateResponse
 
-        if (response != null && installed.versionCode >= response.minimumSupportedVersionCode) {
-            _state.value = UpdateState.UpToDate(
-                installedVersionName = installed.versionName,
-                installedVersionCode = installed.versionCode
-            )
-        } else if (currentState is UpdateState.Installing || currentState is UpdateState.Downloading) {
-            // User returned from installer without completing or cancelled
+        // Post-install verification: check if the installed version now meets the requirement
+        if (response != null) {
+            val evaluation = UpdatePolicy.evaluate(installed.versionCode, response)
+            if (evaluation == UpdatePolicyResult.UP_TO_DATE) {
+                _state.value = UpdateState.UpToDate(
+                    installedVersionName = installed.versionName,
+                    installedVersionCode = installed.versionCode
+                )
+                return
+            }
+        }
+
+        // If we were in Installing state and user came back but didn't actually update
+        if (currentState is UpdateState.Installing) {
             if (response != null) {
                 _state.value = UpdateState.UpdateRequired(
                     response = response,
@@ -189,6 +220,9 @@ class UpdateManager(
                 checkForUpdates()
             }
         }
+
+        // For UpdateRequired, UpdateFailed, NetworkError states — keep them as-is.
+        // The user must interact with the UI (retry/update buttons) to progress.
     }
 
     /**
@@ -201,3 +235,4 @@ class UpdateManager(
         }
     }
 }
+

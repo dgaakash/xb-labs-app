@@ -1,16 +1,16 @@
 {
-  "latestVersionCode": 3,
-  "latestVersionName": "1.2.0",
-  "minimumSupportedVersionCode": 3,
-  "forceUpdate": true,
+  "latestVersionCode": 1,
+  "latestVersionName": "1.0.0",
+  "minimumSupportedVersionCode": 1,
+  "forceUpdate": false,
   "apkFilename": "app-debug.apk",
   "apkUrl": "https://xb-labs-app.vercel.app/releases/app-debug.apk",
   "sha256": "c273239a55a4224144887aed1625d846681a5ee967df60c6a7bc0a6141c5051f",
   "fileSize": 15611558,
   "releaseNotes": [
-    "Mandatory security & feature update v1.1.0",
-    "Enhanced in-app update engine with SHA-256 verification",
+    "Current stable release",
+    "In-app update engine with SHA-256 verification",
     "Performance optimizations"
   ],
-  "message": "This update is required to continue using XB Labs."
+  "message": "You are on the latest version."
 }

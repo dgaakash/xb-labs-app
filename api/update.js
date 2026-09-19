@@ -48,16 +48,16 @@ module.exports = function handler(req, res) {
   if (!sha256Hash) sha256Hash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
   const updateResponse = {
-    latestVersionCode: parseInt(process.env.LATEST_VERSION_CODE || (config.latestVersionCode ? String(config.latestVersionCode) : '2'), 10),
-    latestVersionName: process.env.LATEST_VERSION_NAME || config.latestVersionName || '1.1.0',
-    minimumSupportedVersionCode: parseInt(process.env.MINIMUM_SUPPORTED_VERSION_CODE || (config.minimumSupportedVersionCode ? String(config.minimumSupportedVersionCode) : '2'), 10),
-    forceUpdate: process.env.FORCE_UPDATE !== undefined ? process.env.FORCE_UPDATE !== 'false' : (config.forceUpdate !== false),
+    latestVersionCode: parseInt(process.env.LATEST_VERSION_CODE || (config.latestVersionCode ? String(config.latestVersionCode) : '1'), 10),
+    latestVersionName: process.env.LATEST_VERSION_NAME || config.latestVersionName || '1.0.0',
+    minimumSupportedVersionCode: parseInt(process.env.MINIMUM_SUPPORTED_VERSION_CODE || (config.minimumSupportedVersionCode ? String(config.minimumSupportedVersionCode) : '1'), 10),
+    forceUpdate: process.env.FORCE_UPDATE !== undefined ? process.env.FORCE_UPDATE !== 'false' : (config.forceUpdate === true),
     apkUrl: process.env.APK_URL || config.apkUrl || `${proto}://${host}/releases/${apkFilename}`,
     sha256: sha256Hash,
     fileSize: fileSize,
     releaseNotes: config.releaseNotes || [
-      'Mandatory security & feature update v1.1.0',
-      'Enhanced in-app update engine with SHA-256 verification',
+      'Current stable release',
+      'In-app update engine with SHA-256 verification',
       'Performance optimizations'
     ],
     message: config.message || 'This update is required to continue using XB Labs.'
