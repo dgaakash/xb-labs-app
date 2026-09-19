@@ -1,16 +1,16 @@
 {
   "latestVersionCode": 1,
-  "latestVersionName": "1.0.0",
-  "minimumSupportedVersionCode": 1,
-  "forceUpdate": false,
+  "latestVersionName": "1.1.0",
+  "minimumSupportedVersionCode": 2,
+  "forceUpdate": true,
   "apkFilename": "app-debug.apk",
   "apkUrl": "https://xb-labs-app.vercel.app/releases/app-debug.apk",
-  "sha256": "c273239a55a4224144887aed1625d846681a5ee967df60c6a7bc0a6141c5051f",
-  "fileSize": 15611558,
+  "sha256": "7aecbbbdc95e7ff752e35b88bb0b728e729c12853a3752a620a9809e898be679",
+  "fileSize": 15611750,
   "releaseNotes": [
     "Current stable release",
     "In-app update engine with SHA-256 verification",
     "Performance optimizations"
   ],
-  "message": "You are on the latest version."
+  "message": "This update is required to continue using XB Labs."
 }
