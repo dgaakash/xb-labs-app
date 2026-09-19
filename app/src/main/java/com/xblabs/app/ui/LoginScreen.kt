@@ -2,15 +2,12 @@ package com.xblabs.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -32,31 +29,40 @@ import androidx.compose.ui.unit.sp
 
 data class UserAccount(
     val email: String,
+    val username: String,
     val name: String,
     val role: String,
+    val password: String,
     val color: Color
 )
 
 object PredefinedAccounts {
     val ADMIN = UserAccount(
         email = "xavier@xblabs.com",
+        username = "xavier",
         name = "Xavier",
         role = "Admin",
+        password = "xblabs123@@@@",
         color = Color(0xFF6366F1) // Indigo
     )
 
     val EMPLOYEE = UserAccount(
         email = "blessi@xblabs.com",
+        username = "blessi",
         name = "Blessi",
         role = "PR & Sales",
+        password = "xblabs123@",
         color = Color(0xFFEC4899) // Pink
     )
 
     val ALL = listOf(ADMIN, EMPLOYEE)
 
-    fun findByEmail(email: String): UserAccount? {
-        val trimmed = email.trim().lowercase()
-        return ALL.find { it.email.lowercase() == trimmed }
+    fun authenticate(userInput: String, passwordInput: String): UserAccount? {
+        val trimmedUser = userInput.trim().lowercase()
+        return ALL.find { account ->
+            (account.username.lowercase() == trimmedUser || account.email.lowercase() == trimmedUser) &&
+                    account.password == passwordInput
+        }
     }
 }
 
@@ -65,7 +71,7 @@ object PredefinedAccounts {
 fun LoginScreen(
     onLoginSuccess: (UserAccount) -> Unit
 ) {
-    var emailInput by remember { mutableStateOf("") }
+    var userInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -77,13 +83,17 @@ fun LoginScreen(
         )
     )
 
-    fun attemptLogin(email: String) {
-        val account = PredefinedAccounts.findByEmail(email)
+    fun attemptLogin() {
+        if (userInput.isBlank() || passwordInput.isBlank()) {
+            errorMessage = "Please enter both username/email and password."
+            return
+        }
+        val account = PredefinedAccounts.authenticate(userInput, passwordInput)
         if (account != null) {
             errorMessage = null
             onLoginSuccess(account)
         } else {
-            errorMessage = "Invalid email. Please use xavier@xblabs.com or blessi@xblabs.com"
+            errorMessage = "Invalid credentials. Please check your username and password."
         }
     }
 
@@ -147,68 +157,26 @@ fun LoginScreen(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
-                // One-tap Account Quick Selectors
-                Text(
-                    text = "Select Account:",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFCBD5E1),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Admin Quick Tile
-                    AccountQuickTile(
-                        account = PredefinedAccounts.ADMIN,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            emailInput = PredefinedAccounts.ADMIN.email
-                            attemptLogin(PredefinedAccounts.ADMIN.email)
-                        }
-                    )
-
-                    // Employee Quick Tile
-                    AccountQuickTile(
-                        account = PredefinedAccounts.EMPLOYEE,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            emailInput = PredefinedAccounts.EMPLOYEE.email
-                            attemptLogin(PredefinedAccounts.EMPLOYEE.email)
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Email Input
+                // Username / Email Input
                 OutlinedTextField(
-                    value = emailInput,
+                    value = userInput,
                     onValueChange = {
-                        emailInput = it
+                        userInput = it
                         errorMessage = null
                     },
-                    label = { Text("Email Address", color = Color(0xFF94A3B8)) },
+                    label = { Text("Username or Email", color = Color(0xFF94A3B8)) },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.Email,
+                            imageVector = Icons.Default.Person,
                             contentDescription = null,
                             tint = Color(0xFF38BDF8)
                         )
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
+                        keyboardType = KeyboardType.Text,
                         imeAction = ImeAction.Next
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -223,12 +191,15 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Password Input
                 OutlinedTextField(
                     value = passwordInput,
-                    onValueChange = { passwordInput = it },
+                    onValueChange = {
+                        passwordInput = it
+                        errorMessage = null
+                    },
                     label = { Text("Password", color = Color(0xFF94A3B8)) },
                     leadingIcon = {
                         Icon(
@@ -244,7 +215,7 @@ fun LoginScreen(
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { attemptLogin(emailInput) }
+                        onDone = { attemptLogin() }
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF38BDF8),
@@ -265,16 +236,16 @@ fun LoginScreen(
                         fontSize = 12.sp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 10.dp),
                         textAlign = TextAlign.Start
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
                 // Login Button
                 Button(
-                    onClick = { attemptLogin(emailInput) },
+                    onClick = { attemptLogin() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
@@ -287,12 +258,6 @@ fun LoginScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color(0xFF0F172A)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Sign In",
                             fontSize = 16.sp,
@@ -302,58 +267,6 @@ fun LoginScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun AccountQuickTile(
-    account: UserAccount,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(
-                width = 1.dp,
-                color = account.color.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .clickable { onClick() },
-        color = account.color.copy(alpha = 0.12f)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(account.color),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = account.name,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                text = account.role,
-                fontSize = 11.sp,
-                color = account.color,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }
