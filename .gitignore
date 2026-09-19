@@ -1,35 +1,49 @@
-# Gradle files
+# Gradle build files & caches
 .gradle/
 build/
 **/build/
+captures/
+.externalNativeBuild/
+.cxx/
 
-# Local configuration files
+# Local Android SDK & configuration files
 local.properties
 android-sdk/
 cmdline-tools.zip
+temp_cmd/
 
-
-# Android Studio / IntelliJ / IDE files
+# Android Studio / IntelliJ / IDE / OS files
 .idea/
 *.iml
 *.iws
 *.ipr
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Temporary server releases & APK build outputs
+# Android Package & Artifact outputs
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+
+# Server releases & public assets
 server/releases/*
 !server/releases/.gitkeep
 public/releases/*
 !public/releases/.gitkeep
-*.apk
 
-# Node dependencies
+# Node & web dependencies
 node_modules/
 .vercel/
 
-# Environment secrets
+# Environment secrets & release signing keys
 .env
 .env.local
+.env.*.local
 *.keystore
 *.jks
 *keystore_base64*
+*.log
