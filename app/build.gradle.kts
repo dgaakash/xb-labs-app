@@ -20,11 +20,16 @@ android {
         }
     }
 
+    val keystoreEnv = System.getenv("KEYSTORE_FILE_PATH")
+    val keystoreFile = if (!keystoreEnv.isNullOrEmpty()) {
+        val f = file(keystoreEnv)
+        if (f.exists()) f else rootProject.file(keystoreEnv)
+    } else null
+
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("KEYSTORE_FILE_PATH")
-            if (!keystorePath.isNullOrEmpty() && file(keystorePath).exists()) {
-                storeFile = file(keystorePath)
+            if (keystoreFile != null && keystoreFile.exists()) {
+                storeFile = keystoreFile
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
@@ -39,9 +44,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            val keystorePath = System.getenv("KEYSTORE_FILE_PATH")
-            if (!keystorePath.isNullOrEmpty() && file(keystorePath).exists()) {
+            if (keystoreFile != null && keystoreFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
