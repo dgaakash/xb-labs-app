@@ -1,14 +1,14 @@
 {
-  "latestVersionCode": 2,
-  "latestVersionName": "2.1.0",
-  "minimumSupportedVersionCode": 1,
+  "latestVersionCode": 4,
+  "latestVersionName": "4.1.0",
+  "minimumSupportedVersionCode": 4,
   "forceUpdate": true,
   "apkFilename": "app-release.apk",
   "apkUrl": "https://xb-labs-app.vercel.app/releases/app-release.apk",
-  "sha256": "f125d5668ce45b584bec62f3da6e544ec3bc1fd182a35a418cb9d5d54b0e364c",
-  "fileSize": 10406562,
+  "sha256": "723fdd3dee85b98269bc8af290e75cfb670bc5188e60a783ccbe1569667fe56a",
+  "fileSize": 10600482,
   "releaseNotes": [
-    "Added  Login for Admin and Employee"
+    "New Admin Feature"
   ],
   "message": "This update is required to continue using XB Labs."
 }
