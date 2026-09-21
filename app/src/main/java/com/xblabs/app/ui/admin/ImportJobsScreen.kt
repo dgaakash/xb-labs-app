@@ -78,6 +78,41 @@ Address: Delhi
 Maps URL: N/A
     """.trimIndent()
 
+    val sampleJsonText = """
+[
+  {
+    "businessName": "Sethi's The Cake Shop",
+    "category": "Cake Shop",
+    "rating": 4.8,
+    "reviewCount": 142,
+    "phone": "08882468831",
+    "website": "N/A",
+    "address": "2648, Hudson Ln, GTB Nagar, New Delhi, Delhi 110009",
+    "mapsUrl": "https://maps.google.com/?cid=1029384"
+  },
+  {
+    "businessName": "Hudson Cafe",
+    "category": "Cafe",
+    "rating": 4.6,
+    "reviewCount": 320,
+    "phone": "09871234567",
+    "website": "https://hudsoncafe.in",
+    "address": "2524, Hudson Ln, Delhi 110009",
+    "mapsUrl": "https://maps.google.com/?cid=5647382"
+  },
+  {
+    "businessName": "The Yellow Door Bistro",
+    "category": "Restaurant",
+    "rating": 4.5,
+    "reviewCount": 89,
+    "phone": "08882468831",
+    "website": "N/A",
+    "address": "12, Vijay Nagar, Delhi",
+    "mapsUrl": "https://maps.google.com/?cid=887766"
+  }
+]
+    """.trimIndent()
+
     fun runPreview() {
         if (rawInputText.isBlank()) return
         val res = BusinessReportParser.parseInputText(rawInputText, existingClients)
@@ -110,19 +145,28 @@ Maps URL: N/A
                             Text("Import Business Leads", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
 
-                        TextButton(
-                            onClick = { rawInputText = sampleReportText }
-                        ) {
-                            Icon(imageVector = Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Paste Sample Report", fontSize = 12.sp, color = Color(0xFF38BDF8))
+                        Row {
+                            TextButton(
+                                onClick = { rawInputText = sampleReportText }
+                            ) {
+                                Icon(imageVector = Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Sample Text", fontSize = 12.sp, color = Color(0xFF38BDF8))
+                            }
+                            TextButton(
+                                onClick = { rawInputText = sampleJsonText }
+                            ) {
+                                Icon(imageVector = Icons.Default.Code, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Sample JSON", fontSize = 12.sp, color = Color(0xFF10B981))
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Paste business report data or uploaded text below. Parser supports N/A websites, missing optional fields, and variable spacing.",
+                        text = "Paste business leads below in Key-Value Text Report format or JSON format (array or object). Auto-detects structure & handles duplicates.",
                         fontSize = 12.sp,
                         color = Color(0xFF94A3B8)
                     )

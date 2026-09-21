@@ -1,6 +1,8 @@
 package com.xblabs.app.parser
 
 import com.xblabs.app.data.models.Client
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class ParsedLeadRecord(
     val businessName: String,
@@ -37,26 +39,40 @@ object BusinessReportParser {
     }
 
     /**
-     * Parses raw input text containing one or many business report entries.
+     * Parses raw input text containing one or many business report entries (Text or JSON).
      */
     fun parseInputText(inputText: String, existingClients: List<Client> = emptyList()): ImportPreviewResult {
         if (inputText.isBlank()) {
             return ImportPreviewResult(emptyList(), 0, 0, 0, 0)
         }
 
-        val rawBlocks = splitIntoBlocks(inputText)
+        val trimmed = inputText.trim()
+        val recordsToEvaluate = mutableListOf<ParsedLeadRecord>()
+
+        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+            val jsonRecords = parseJsonBlocks(trimmed)
+            if (jsonRecords.isNotEmpty()) {
+                recordsToEvaluate.addAll(jsonRecords)
+            }
+        }
+
+        if (recordsToEvaluate.isEmpty()) {
+            val rawBlocks = splitIntoBlocks(inputText)
+            for (block in rawBlocks) {
+                val record = parseSingleBlock(block)
+                if (record.businessName.isNotBlank() || record.phone.isNotBlank()) {
+                    recordsToEvaluate.add(record)
+                }
+            }
+        }
+
         val parsedRecords = mutableListOf<ParsedLeadRecord>()
         val seenPhonesInBatch = mutableSetOf<String>()
 
         val existingNormalizedPhones = existingClients.map { it.normalizedPhone }.filter { it.isNotBlank() }.toSet()
         val existingNamesAndAddresses = existingClients.map { (it.businessName.lowercase().trim() + "|" + it.address.lowercase().trim()) }.toSet()
 
-        for (block in rawBlocks) {
-            val record = parseSingleBlock(block)
-            if (record.businessName.isBlank() && record.phone.isBlank()) {
-                continue // Skip empty structural blocks
-            }
-
+        for (record in recordsToEvaluate) {
             // Check validation
             val (valid, reason) = validateRecord(record)
             if (!valid) {
@@ -97,6 +113,93 @@ object BusinessReportParser {
             validCount = validCount,
             invalidCount = invalidCount,
             duplicateCount = duplicateCount
+        )
+    }
+
+    private fun parseJsonBlocks(trimmedText: String): List<ParsedLeadRecord> {
+        val records = mutableListOf<ParsedLeadRecord>()
+        try {
+            if (trimmedText.startsWith("[")) {
+                val array = JSONArray(trimmedText)
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    records.add(parseSingleJsonObject(obj))
+                }
+            } else if (trimmedText.startsWith("{")) {
+                val rootObj = JSONObject(trimmedText)
+                val wrapperKey = listOf("leads", "clients", "records", "data").firstOrNull { rootObj.has(it) && rootObj.optJSONArray(it) != null }
+                if (wrapperKey != null) {
+                    val array = rootObj.optJSONArray(wrapperKey)!!
+                    for (i in 0 until array.length()) {
+                        val obj = array.optJSONObject(i) ?: continue
+                        records.add(parseSingleJsonObject(obj))
+                    }
+                } else {
+                    records.add(parseSingleJsonObject(rootObj))
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore JSON syntax exceptions; fallback to text parsing
+        }
+        return records
+    }
+
+    private fun parseSingleJsonObject(obj: JSONObject): ParsedLeadRecord {
+        fun getStringOpt(vararg keys: String): String {
+            for (key in keys) {
+                if (obj.has(key) && !obj.isNull(key)) {
+                    val valStr = obj.optString(key, "").trim()
+                    if (valStr.isNotBlank()) return valStr
+                }
+            }
+            return ""
+        }
+
+        fun getDoubleOpt(vararg keys: String): Double {
+            for (key in keys) {
+                if (obj.has(key) && !obj.isNull(key)) {
+                    val d = obj.optDouble(key, 0.0)
+                    if (!d.isNaN()) return d
+                }
+            }
+            return 0.0
+        }
+
+        fun getIntOpt(vararg keys: String): Int {
+            for (key in keys) {
+                if (obj.has(key) && !obj.isNull(key)) {
+                    val i = obj.optInt(key, 0)
+                    if (i != 0) return i
+                }
+            }
+            return 0
+        }
+
+        val name = getStringOpt("businessName", "business_name", "business", "name", "title")
+        val category = getStringOpt("category", "type").ifBlank { "General" }
+        val rating = getDoubleOpt("rating", "stars")
+        val reviews = getIntOpt("reviewCount", "review_count", "reviews", "number_of_reviews")
+        val phone = getStringOpt("phone", "normalizedPhone", "mobile", "contact", "tel")
+        var website = getStringOpt("website", "site", "url")
+        val address = getStringOpt("address", "location")
+        val mapsUrl = getStringOpt("mapsUrl", "maps_url", "maps", "google_maps")
+
+        if (website.equals("N/A", ignoreCase = true) || website.equals("none", ignoreCase = true)) {
+            website = ""
+        }
+
+        val normPhone = normalizePhone(phone)
+
+        return ParsedLeadRecord(
+            businessName = name,
+            category = category,
+            rating = rating,
+            reviewCount = reviews,
+            phone = phone,
+            normalizedPhone = normPhone,
+            website = website,
+            address = address,
+            mapsUrl = mapsUrl
         )
     }
 
