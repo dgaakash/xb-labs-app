@@ -2,6 +2,7 @@ package com.xblabs.app.data
 
 import android.content.Context
 import com.xblabs.app.data.models.*
+import com.xblabs.app.network.SupabaseService
 import com.xblabs.app.parser.ParsedLeadRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,9 +12,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/**
+ * Repository powered directly by Supabase Backend Database.
+ */
 class CrmRepository private constructor(context: Context) {
 
-    private val dbHelper = CrmDatabaseHelper(context.applicationContext)
+    private val supabaseService = SupabaseService()
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private val _users = MutableStateFlow<List<User>>(emptyList())
@@ -40,6 +44,9 @@ class CrmRepository private constructor(context: Context) {
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
     companion object {
         @Volatile
         private var INSTANCE: CrmRepository? = null
@@ -61,8 +68,14 @@ class CrmRepository private constructor(context: Context) {
         }
     }
 
-    private fun seedDefaultUsersIfEmpty() {
-        val existing = dbHelper.getAllUsers()
+    fun triggerRemoteSync() {
+        scope.launch {
+            refreshAll()
+        }
+    }
+
+    private suspend fun seedDefaultUsersIfEmpty() {
+        val existing = supabaseService.fetchUsers()
         if (existing.isEmpty()) {
             val admin = User(
                 id = "usr_admin_xavier",
@@ -82,27 +95,46 @@ class CrmRepository private constructor(context: Context) {
                 passwordHash = "xblabs123@",
                 theme = "pink-princess"
             )
-            dbHelper.insertUser(admin)
-            dbHelper.insertUser(blessi)
+            supabaseService.insertUser(admin)
+            supabaseService.insertUser(blessi)
         }
     }
 
     fun refreshAll() {
-        _users.value = dbHelper.getAllUsers()
-        _clients.value = dbHelper.getAllClients()
-        _callRecords.value = dbHelper.getAllCallRecords()
-        _followUps.value = dbHelper.getAllFollowUps()
-        _importBatches.value = dbHelper.getAllImportBatches()
-        _notifications.value = dbHelper.getAllNotifications()
-        _activityLogs.value = dbHelper.getAllActivityLogs()
+        scope.launch {
+            try {
+                _isSyncing.value = true
+                val fetchedUsers = supabaseService.fetchUsers()
+                val fetchedClients = supabaseService.fetchClients()
+                val fetchedCalls = supabaseService.fetchCallRecords()
+                val fetchedFollows = supabaseService.fetchFollowUps()
+                val fetchedBatches = supabaseService.fetchImportBatches()
+                val fetchedNotifs = supabaseService.fetchNotifications()
+                val fetchedLogs = supabaseService.fetchActivityLogs()
+
+                _users.value = fetchedUsers
+                _clients.value = fetchedClients
+                _callRecords.value = fetchedCalls
+                _followUps.value = fetchedFollows
+                _importBatches.value = fetchedBatches
+                _notifications.value = fetchedNotifs
+                _activityLogs.value = fetchedLogs
+            } catch (e: Exception) {
+                // Ignore transient network errors
+            } finally {
+                _isSyncing.value = false
+            }
+        }
     }
 
     fun setCurrentUser(user: User?) {
         _currentUser.value = user
         if (user != null) {
-            val updated = user.copy(lastActive = System.currentTimeMillis())
-            dbHelper.updateUser(updated)
-            refreshAll()
+            scope.launch {
+                val updated = user.copy(lastActive = System.currentTimeMillis())
+                supabaseService.updateUser(updated)
+                refreshAll()
+            }
         }
     }
 
@@ -118,14 +150,13 @@ class CrmRepository private constructor(context: Context) {
         return found
     }
 
-    // --- LEAD IMPORT & FAIR WORKLOAD BALANCING ---
+    // --- LEAD IMPORT & FAIR WORKLOAD BALANCING IN SUPABASE ---
 
     fun importLeads(admin: User, parsedRecords: List<ParsedLeadRecord>, sourceName: String = "Text Import"): ImportBatch {
         val batchId = "batch_" + UUID.randomUUID().toString().take(8)
         val validRecordsToImport = parsedRecords.filter { it.isValid && !it.isDuplicate }
         val activeEmployees = _users.value.filter { it.role == UserRole.EMPLOYEE && it.active }
 
-        // Workload mapping: count current active jobs per employee
         val activeWorkloadMap = activeEmployees.associate { emp ->
             emp.id to _clients.value.count { c ->
                 c.assignedEmployeeId == emp.id &&
@@ -136,13 +167,11 @@ class CrmRepository private constructor(context: Context) {
 
         val assignedCounts = activeEmployees.associate { it.id to 0 }.toMutableMap()
         val importedClients = mutableListOf<Client>()
-
         val now = System.currentTimeMillis()
 
         for (rec in validRecordsToImport) {
             var assignedEmp: User? = null
             if (activeEmployees.isNotEmpty()) {
-                // Priority: pick employee with lowest active workload
                 val targetEmpId = activeWorkloadMap.minByOrNull { it.value }?.key
                 assignedEmp = activeEmployees.find { it.id == targetEmpId }
                 if (targetEmpId != null) {
@@ -171,11 +200,9 @@ class CrmRepository private constructor(context: Context) {
                 createdAt = now,
                 importBatchId = batchId
             )
-            dbHelper.insertClient(client)
             importedClients.add(client)
         }
 
-        // Distribution Summary text
         val summaryBuilder = StringBuilder()
         assignedCounts.forEach { (empId, count) ->
             val name = activeEmployees.find { it.id == empId }?.name ?: "Unknown"
@@ -194,37 +221,42 @@ class CrmRepository private constructor(context: Context) {
             invalidRecords = parsedRecords.count { !it.isValid },
             distributionSummary = summaryBuilder.toString().trimEnd(';', ' ')
         )
-        dbHelper.insertImportBatch(batch)
 
-        // Create Notifications for employees who received jobs
-        assignedCounts.forEach { (empId, count) ->
-            if (count > 0) {
-                val notif = Notification(
-                    id = "notif_" + UUID.randomUUID().toString().take(8),
-                    userId = empId,
-                    type = NotificationType.NEW_JOBS,
-                    title = "New Clients Assigned",
-                    message = "You have received $count new clients from batch '$sourceName'. Check your jobs queue!",
-                    createdAt = now
-                )
-                dbHelper.insertNotification(notif)
+        scope.launch {
+            if (importedClients.isNotEmpty()) {
+                supabaseService.insertClients(importedClients)
             }
+            supabaseService.insertImportBatch(batch)
+
+            assignedCounts.forEach { (empId, count) ->
+                if (count > 0) {
+                    val notif = Notification(
+                        id = "notif_" + UUID.randomUUID().toString().take(8),
+                        userId = empId,
+                        type = NotificationType.NEW_JOBS,
+                        title = "New Clients Assigned",
+                        message = "You have received $count new clients from batch '$sourceName'. Check your jobs queue!",
+                        createdAt = now
+                    )
+                    supabaseService.insertNotification(notif)
+                }
+            }
+
+            logActivity(
+                user = admin,
+                action = "IMPORT_LEADS",
+                entityType = "ImportBatch",
+                entityId = batchId,
+                metadata = "Imported ${validRecordsToImport.size} records. Dist: ${summaryBuilder.toString()}"
+            )
+
+            refreshAll()
         }
 
-        // Activity Log
-        logActivity(
-            user = admin,
-            action = "IMPORT_LEADS",
-            entityType = "ImportBatch",
-            entityId = batchId,
-            metadata = "Imported ${validRecordsToImport.size} records. Dist: ${summaryBuilder.toString()}"
-        )
-
-        refreshAll()
         return batch
     }
 
-    // --- CALL RECORD & 3-FOLLOW-UP LIMIT LOGIC ---
+    // --- CALL RECORD & 3-FOLLOW-UP LIMIT LOGIC IN SUPABASE ---
 
     fun recordCallOutcome(
         client: Client,
@@ -247,7 +279,6 @@ class CrmRepository private constructor(context: Context) {
             timestamp = now,
             followUpNumber = currentFollowUpNum
         )
-        dbHelper.insertCallRecord(callRecord)
 
         var updatedClient: Client
 
@@ -256,8 +287,7 @@ class CrmRepository private constructor(context: Context) {
                 val nextAttemptNum = currentFollowUpNum + 1
 
                 if (nextAttemptNum <= 3) {
-                    // Schedule Follow Up (attempt 1, 2, or 3)
-                    val dueDate = customFollowUpDate ?: (now + 24 * 60 * 60 * 1000L) // Default tomorrow
+                    val dueDate = customFollowUpDate ?: (now + 24 * 60 * 60 * 1000L)
                     val followUp = FollowUp(
                         id = "fol_" + UUID.randomUUID().toString().take(8),
                         clientId = client.id,
@@ -272,7 +302,7 @@ class CrmRepository private constructor(context: Context) {
                         previousResult = outcome.name,
                         createdAt = now
                     )
-                    dbHelper.insertFollowUp(followUp)
+                    scope.launch { supabaseService.insertFollowUp(followUp) }
 
                     updatedClient = client.copy(
                         currentStatus = ClientStatus.FOLLOW_UP,
@@ -282,8 +312,6 @@ class CrmRepository private constructor(context: Context) {
                         lastContactedAt = now
                     )
                 } else {
-                    // Exceeded 3 follow-ups limit!
-                    // Exits employee active queue, but remains permanently visible in Admin master view!
                     updatedClient = client.copy(
                         currentStatus = ClientStatus.CLOSED,
                         employeeWorkflowStatus = WorkflowStatus.EXHAUSTED,
@@ -315,32 +343,33 @@ class CrmRepository private constructor(context: Context) {
             }
         }
 
-        dbHelper.updateClient(updatedClient)
+        scope.launch {
+            supabaseService.insertCallRecord(callRecord)
+            supabaseService.updateClient(updatedClient)
 
-        logActivity(
-            user = employee,
-            action = "CALL_OUTCOME_${outcome.name}",
-            entityType = "Client",
-            entityId = client.id,
-            metadata = "Notes: $notes | Attempt: ${updatedClient.followUpCount}/3"
-        )
+            logActivity(
+                user = employee,
+                action = "CALL_OUTCOME_${outcome.name}",
+                entityType = "Client",
+                entityId = client.id,
+                metadata = "Notes: $notes | Attempt: ${updatedClient.followUpCount}/3"
+            )
 
-        // Check if employee queue is empty after this action
-        checkEmployeeQueueEmpty(employee)
+            checkEmployeeQueueEmpty(employee)
+            refreshAll()
+        }
 
-        refreshAll()
         return updatedClient
     }
 
-    private fun checkEmployeeQueueEmpty(employee: User) {
-        val remainingActiveCount = dbHelper.getAllClients().count { c ->
+    private suspend fun checkEmployeeQueueEmpty(employee: User) {
+        val remainingActiveCount = _clients.value.count { c ->
             c.assignedEmployeeId == employee.id &&
                     c.employeeWorkflowStatus == WorkflowStatus.ACTIVE &&
                     c.currentStatus in listOf(ClientStatus.NEW, ClientStatus.IN_PROGRESS, ClientStatus.FOLLOW_UP)
         }
 
         if (remainingActiveCount == 0) {
-            // Notify Admin about empty queue
             val adminUsers = _users.value.filter { it.role == UserRole.ADMIN }
             for (admin in adminUsers) {
                 val notif = Notification(
@@ -351,46 +380,46 @@ class CrmRepository private constructor(context: Context) {
                     message = "${employee.name} has completed all assigned jobs and currently has no remaining active clients. Consider importing or assigning additional clients.",
                     createdAt = System.currentTimeMillis()
                 )
-                dbHelper.insertNotification(notif)
+                supabaseService.insertNotification(notif)
             }
         }
     }
 
-    // --- REASSIGNMENT & JOB MANAGEMENT ---
+    // --- REASSIGNMENT & EMPLOYEE MANAGEMENT ---
 
     fun reassignClients(clientIds: List<String>, targetEmployee: User, admin: User) {
         val now = System.currentTimeMillis()
-        for (id in clientIds) {
-            val client = _clients.value.find { it.id == id } ?: continue
-            val oldEmpName = client.assignedEmployeeName ?: "Unassigned"
-            val updated = client.copy(
-                assignedEmployeeId = targetEmployee.id,
-                assignedEmployeeName = targetEmployee.name,
-                employeeWorkflowStatus = WorkflowStatus.ACTIVE
-            )
-            dbHelper.updateClient(updated)
+        scope.launch {
+            for (id in clientIds) {
+                val client = _clients.value.find { it.id == id } ?: continue
+                val oldEmpName = client.assignedEmployeeName ?: "Unassigned"
+                val updated = client.copy(
+                    assignedEmployeeId = targetEmployee.id,
+                    assignedEmployeeName = targetEmployee.name,
+                    employeeWorkflowStatus = WorkflowStatus.ACTIVE
+                )
+                supabaseService.updateClient(updated)
 
-            logActivity(
-                user = admin,
-                action = "REASSIGN_CLIENT",
-                entityType = "Client",
-                entityId = id,
-                metadata = "Reassigned from $oldEmpName to ${targetEmployee.name}"
+                logActivity(
+                    user = admin,
+                    action = "REASSIGN_CLIENT",
+                    entityType = "Client",
+                    entityId = id,
+                    metadata = "Reassigned from $oldEmpName to ${targetEmployee.name}"
+                )
+            }
+
+            val notif = Notification(
+                id = "notif_" + UUID.randomUUID().toString().take(8),
+                userId = targetEmployee.id,
+                type = NotificationType.REASSIGNMENT,
+                title = "Jobs Reassigned",
+                message = "Admin ${admin.name} reassigned ${clientIds.size} client(s) to your queue.",
+                createdAt = now
             )
+            supabaseService.insertNotification(notif)
+            refreshAll()
         }
-
-        // Notify target employee
-        val notif = Notification(
-            id = "notif_" + UUID.randomUUID().toString().take(8),
-            userId = targetEmployee.id,
-            type = NotificationType.REASSIGNMENT,
-            title = "Jobs Reassigned",
-            message = "Admin ${admin.name} reassigned ${clientIds.size} client(s) to your queue.",
-            createdAt = now
-        )
-        dbHelper.insertNotification(notif)
-
-        refreshAll()
     }
 
     fun createEmployee(name: String, email: String, username: String, pass: String, theme: String = "default"): User {
@@ -403,36 +432,39 @@ class CrmRepository private constructor(context: Context) {
             passwordHash = pass,
             theme = theme
         )
-        dbHelper.insertUser(newUser)
-        logActivity(_currentUser.value ?: newUser, "CREATE_EMPLOYEE", "User", newUser.id, "Created employee ${newUser.name}")
-        refreshAll()
+        scope.launch {
+            supabaseService.insertUser(newUser)
+            logActivity(_currentUser.value ?: newUser, "CREATE_EMPLOYEE", "User", newUser.id, "Created employee ${newUser.name}")
+            refreshAll()
+        }
         return newUser
     }
 
     fun toggleEmployeeActiveStatus(employeeId: String, active: Boolean, redistributeJobs: Boolean, admin: User) {
         val emp = _users.value.find { it.id == employeeId } ?: return
         val updatedEmp = emp.copy(active = active)
-        dbHelper.updateUser(updatedEmp)
 
-        if (!active && redistributeJobs) {
-            // Find active remaining employees
-            val remainingEmps = _users.value.filter { it.id != employeeId && it.role == UserRole.EMPLOYEE && it.active }
-            val empClientsToMove = _clients.value.filter { it.assignedEmployeeId == employeeId && it.employeeWorkflowStatus == WorkflowStatus.ACTIVE }
+        scope.launch {
+            supabaseService.updateUser(updatedEmp)
 
-            if (remainingEmps.isNotEmpty() && empClientsToMove.isNotEmpty()) {
-                val clientIdsToMove = empClientsToMove.map { it.id }
-                // Distribute round-robin or lowest workload
-                var empIdx = 0
-                for (cid in clientIdsToMove) {
-                    val target = remainingEmps[empIdx % remainingEmps.size]
-                    reassignClients(listOf(cid), target, admin)
-                    empIdx++
+            if (!active && redistributeJobs) {
+                val remainingEmps = _users.value.filter { it.id != employeeId && it.role == UserRole.EMPLOYEE && it.active }
+                val empClientsToMove = _clients.value.filter { it.assignedEmployeeId == employeeId && it.employeeWorkflowStatus == WorkflowStatus.ACTIVE }
+
+                if (remainingEmps.isNotEmpty() && empClientsToMove.isNotEmpty()) {
+                    val clientIdsToMove = empClientsToMove.map { it.id }
+                    var empIdx = 0
+                    for (cid in clientIdsToMove) {
+                        val target = remainingEmps[empIdx % remainingEmps.size]
+                        reassignClients(listOf(cid), target, admin)
+                        empIdx++
+                    }
                 }
             }
-        }
 
-        logActivity(admin, if (active) "ENABLE_EMPLOYEE" else "DISABLE_EMPLOYEE", "User", employeeId, "Active: $active")
-        refreshAll()
+            logActivity(admin, if (active) "ENABLE_EMPLOYEE" else "DISABLE_EMPLOYEE", "User", employeeId, "Active: $active")
+            refreshAll()
+        }
     }
 
     fun archiveClient(clientId: String, admin: User) {
@@ -442,22 +474,28 @@ class CrmRepository private constructor(context: Context) {
             employeeWorkflowStatus = WorkflowStatus.CLOSED,
             archivedAt = System.currentTimeMillis()
         )
-        dbHelper.updateClient(updated)
-        logActivity(admin, "ARCHIVE_CLIENT", "Client", clientId, "Archived client ${client.businessName}")
-        refreshAll()
+        scope.launch {
+            supabaseService.updateClient(updated)
+            logActivity(admin, "ARCHIVE_CLIENT", "Client", clientId, "Archived client ${client.businessName}")
+            refreshAll()
+        }
     }
 
     fun markNotificationRead(id: String) {
-        dbHelper.markNotificationAsRead(id)
-        refreshAll()
+        scope.launch {
+            supabaseService.markNotificationRead(id)
+            refreshAll()
+        }
     }
 
     fun markAllNotificationsRead(userId: String) {
-        dbHelper.markAllNotificationsAsRead(userId)
-        refreshAll()
+        scope.launch {
+            supabaseService.markAllNotificationsRead(userId)
+            refreshAll()
+        }
     }
 
-    private fun logActivity(user: User, action: String, entityType: String, entityId: String, metadata: String = "") {
+    private suspend fun logActivity(user: User, action: String, entityType: String, entityId: String, metadata: String = "") {
         val log = ActivityLog(
             id = "log_" + UUID.randomUUID().toString().take(8),
             userId = user.id,
@@ -468,6 +506,6 @@ class CrmRepository private constructor(context: Context) {
             metadata = metadata,
             timestamp = System.currentTimeMillis()
         )
-        dbHelper.insertActivityLog(log)
+        supabaseService.insertActivityLog(log)
     }
 }

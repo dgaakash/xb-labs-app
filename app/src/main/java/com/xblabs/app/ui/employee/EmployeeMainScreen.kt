@@ -37,6 +37,7 @@ fun EmployeeMainScreen(
     val followUps by repository.followUps.collectAsState()
     val notifications by repository.notifications.collectAsState()
 
+    val isSyncing by repository.isSyncing.collectAsState()
     val myNotifications = notifications.filter { it.userId == employee.id || it.userId == "ALL" }
     val unreadCount = myNotifications.count { !it.isRead }
 
@@ -99,6 +100,22 @@ fun EmployeeMainScreen(
                             }
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { repository.triggerRemoteSync() }) {
+                                    if (isSyncing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = primaryColor,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Sync,
+                                            contentDescription = "Sync Data",
+                                            tint = primaryColor
+                                        )
+                                    }
+                                }
+
                                 IconButton(onClick = { showNotificationsModal = true }) {
                                     BadgedBox(
                                         badge = {

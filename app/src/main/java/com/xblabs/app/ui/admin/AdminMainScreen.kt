@@ -38,6 +38,7 @@ fun AdminMainScreen(
     val notifications by repository.notifications.collectAsState()
     val activityLogs by repository.activityLogs.collectAsState()
 
+    val isSyncing by repository.isSyncing.collectAsState()
     val myNotifications = notifications.filter { it.userId == adminUser.id || it.userId == "ALL" }
     val unreadCount = myNotifications.count { !it.isRead }
 
@@ -73,6 +74,22 @@ fun AdminMainScreen(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { repository.triggerRemoteSync() }) {
+                                if (isSyncing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color(0xFF38BDF8),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = "Sync Data",
+                                        tint = Color(0xFF38BDF8)
+                                    )
+                                }
+                            }
+
                             IconButton(onClick = { showNotificationsModal = true }) {
                                 BadgedBox(
                                     badge = {
